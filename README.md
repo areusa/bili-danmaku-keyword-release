@@ -1,12 +1,12 @@
 # B站直播关键词高亮
 
-Tampermonkey 正式脚本，版本 **1.3.1**。
+Tampermonkey 正式脚本，版本 **1.3.2**。
 
 ## 安装与更新
 
 1. 安装并启用 Tampermonkey。
 2. 点击[安装脚本](https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js)，在扩展页面确认。
-3. 刷新 B站直播间，点击右侧“弹幕关键词”，保存房间号后添加关键词。
+3. 刷新 B站直播间，点击右侧“弹幕关键词”，保存房间号后添加关键词；标题旁显示当前脚本版本。
 
 旧版用户先用此版本覆盖更新一次，保留原脚本及存储，无需卸载。后续由 Tampermonkey 按用户设置检查更新；更新地址和下载地址均为上述固定链接。若曾手工修改“更新 URL”，请恢复使用脚本元数据或改为该链接。
 
