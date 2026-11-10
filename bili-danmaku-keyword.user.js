@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站直播关键词高亮
 // @namespace    local.bili-danmaku-keyword
-// @version      1.3.3
+// @version      1.3.4
 // @updateURL    https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @downloadURL  https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @description  本机配置关键词，高亮原生弹幕并保留昵称和命中记录，不额外连接弹幕服务器。
@@ -13,12 +13,15 @@
 // @grant        GM_addValueChangeListener
 // @grant        GM_registerMenuCommand
 // @grant        GM_setClipboard
+// @grant        GM_xmlhttpRequest
+// @connect      raw.githubusercontent.com
+// @connect      api.github.com
 // ==/UserScript==
 
 (() => {
   'use strict';
   if (document.getElementById('bdk-host')) return;
-  const SCRIPT_VERSION = '1.3.3';
+  const SCRIPT_VERSION = '1.3.4';
   const SETTINGS = 'bdk-settings-v1', HISTORY = 'bdk-history-v1';
   const BACKUPS = 'bdk-settings-backups-v1';
   const ROW = '.chat-item.danmaku-item';
@@ -265,7 +268,8 @@
   const panel = el('section', { class: 'panel', id: 'bdk-panel', hidden: true, 'aria-label': '直播关键词检测面板' });
   const close = iconButton('close', '收起面板', () => openPanel(false));
   const enabled = el('input', { type: 'checkbox', 'aria-label': '启用检测', checked: config.enabled, onchange: () => { config.enabled = enabled.checked; saveConfig(); refresh(); } });
-  panel.append(el('div', { class: 'head' }, icon('chat'), el('h2', {}, el('span', { class: 'title-text', text: '弹幕关键词' }), el('span', { class: 'version', text: `v${SCRIPT_VERSION}`, 'aria-label': `当前版本 ${SCRIPT_VERSION}` })), el('label', { class: 'switch', 'data-tip': '启用 / 暂停检测' }, enabled, el('span', { class: 'switch-track' })), close));
+  const versionButton = button(`v${SCRIPT_VERSION}`, () => latestVersion ? showUpdateDetails() : checkScriptUpdate(true), 'version');
+  panel.append(el('div', { class: 'head' }, icon('chat'), el('h2', {}, el('span', { class: 'title-text', text: '弹幕关键词' }), versionButton), el('label', { class: 'switch', 'data-tip': '启用 / 暂停检测' }, enabled, el('span', { class: 'switch-track' })), close));
   const stateBadge = el('span', { class: 'pill' }), stats = el('span', { class: 'stats' }), hint = el('div', { class: 'hint' });
   const statusInfo = iconButton('information', '检测状态详情', () => {});
   const statusSection = el('div', { class: 'status' }, stateBadge, stats, statusInfo);
@@ -851,6 +855,129 @@
       renderRecords();
     });
   }
+  // 脚本本体更新：检查版本 → 通知 → 更新说明 → 新标签页安装。
+  const updateURL = 'https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js';
+  const releasesURL = 'https://github.com/areusa/bili-danmaku-keyword-release/releases';
+  const updateKey = 'bdk-script-update-v1', updateInterval = 24 * 60 * 60 * 1000;
+  const validVersion = value => typeof value === 'string' && /^\d{1,7}\.\d{1,7}\.\d{1,7}$/.test(value);
+  const newerVersion = value => validVersion(value) && value.split('.').map(Number).reduce((result, part, index) => result || Math.sign(part - Number(SCRIPT_VERSION.split('.')[index])), 0) > 0;
+  let updateMemory = {}, latestVersion = '', checkingUpdate = false, detailsSequence = 0, updateReturnFocus = null;
+  function readUpdateState() {
+    try {
+      const value = GM_getValue(updateKey, {});
+      if (value && typeof value === 'object' && !Array.isArray(value)) updateMemory = value;
+    } catch { /* 更新缓存不可读时仍可手动检查，不影响关键词设置。 */ }
+    return updateMemory;
+  }
+  function saveUpdateState(patch) {
+    updateMemory = { ...readUpdateState(), ...patch };
+    try { GM_setValue(updateKey, updateMemory); }
+    catch { /* 当前页面保留检查结果，存储恢复后再保存。 */ }
+  }
+  shadow.append(el('style', { text: `
+    button.version{border:0;background:transparent;padding:0 3px;min-height:32px;border-radius:4px}button.version.available{color:var(--accent)}
+    .launch.has-update:after{content:'';position:absolute;right:3px;top:3px;width:6px;height:6px;border-radius:50%;background:var(--accent);pointer-events:none}
+    .update-toast{position:fixed;right:16px;top:16px;z-index:2147483647;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 3px 16px #0002;animation:view-in 160ms ease-out}
+    .update-toast .update-message{overflow-wrap:anywhere}.update-toast .update-actions{display:flex;flex:none;align-items:center;gap:4px}
+    .update-dialog{color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;width:min(460px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);box-shadow:0 6px 24px #0002;font:inherit}
+    .update-dialog[open]{display:flex;flex-direction:column;gap:12px;animation:view-in 160ms ease-out}.update-dialog::backdrop{background:#0005}
+    .update-heading{display:flex;align-items:center;gap:8px}.update-heading h3{flex:1}.update-notes{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;overscroll-behavior:contain;font:inherit;min-height:48px}
+    .update-footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}.update-link{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);color:var(--ink);text-decoration:none;transition:background-color 160ms ease-out,color 160ms ease-out}.update-link.primary{background:var(--accent);border-color:var(--accent);color:white}.update-link:focus-visible{outline:2px solid #61666d;outline-offset:2px}
+    @media(pointer:coarse){button.version,.update-link,.update-toast button,.update-dialog button{min-height:44px}}@media(prefers-reduced-motion:reduce){.update-toast,.update-dialog[open]{animation:none}}
+  ` }));
+  const updateToast = el('div', { class: 'update-toast', hidden: true, 'aria-label': '脚本更新通知' });
+  const updateMessage = el('span', { class: 'update-message', role: 'status', 'aria-live': 'polite' });
+  const detailsButton = button('查看详情', () => showUpdateDetails());
+  const dismissUpdate = iconButton('close', '关闭更新通知', () => {
+    updateToast.hidden = true;
+    (panel.hidden ? launcher : versionButton).focus();
+  });
+  updateToast.append(updateMessage, el('div', { class: 'update-actions' }, detailsButton, dismissUpdate));
+  const updateDialog = el('dialog', { class: 'update-dialog', 'aria-labelledby': 'bdk-update-title' });
+  const updateTitle = el('h3', { id: 'bdk-update-title' });
+  const updateNotes = el('div', { class: 'update-notes', role: 'status', 'aria-live': 'polite' });
+  const releaseLink = el('a', { class: 'update-link', text: '发布页', href: releasesURL, target: '_blank', rel: 'noopener noreferrer' });
+  const installLink = el('a', { class: 'update-link primary', text: '安装', href: updateURL, target: '_blank', rel: 'noopener noreferrer' });
+  installLink.prepend(icon('download'));
+  updateDialog.append(el('div', { class: 'update-heading' }, updateTitle, iconButton('close', '关闭更新说明', () => updateDialog.close())), updateNotes,
+    el('div', { class: 'update-footer' }, releaseLink, installLink));
+  updateDialog.addEventListener('close', () => { detailsSequence++; updateReturnFocus?.focus(); });
+  shadow.append(updateToast, updateDialog);
+  function renderUpdateState() {
+    versionButton.textContent = `v${SCRIPT_VERSION}${latestVersion ? ' · 新' : ''}`;
+    versionButton.classList.toggle('available', Boolean(latestVersion));
+    versionButton.disabled = checkingUpdate;
+    versionButton.setAttribute('aria-busy', String(checkingUpdate));
+    const label = checkingUpdate ? '正在检查更新' : latestVersion ? `当前 v${SCRIPT_VERSION}，发现 v${latestVersion}，查看更新说明` : `当前 v${SCRIPT_VERSION}，检查更新`;
+    versionButton.setAttribute('aria-label', label); versionButton.dataset.tip = label;
+    launcher.classList.toggle('has-update', Boolean(latestVersion));
+  }
+  function showUpdateNotice(text, hasUpdate = false) {
+    updateMessage.textContent = text; detailsButton.hidden = !hasUpdate; updateToast.hidden = false;
+  }
+  function requestUpdateText(url) {
+    return new Promise((resolve, reject) => {
+      if (typeof GM_xmlhttpRequest !== 'function') return reject(new Error('缺少网络权限，请重新安装当前版本并允许新增权限。'));
+      GM_xmlhttpRequest({ method: 'GET', url, anonymous: true, responseType: 'text', timeout: 15000,
+        onload: response => {
+          if (response.status !== 200) return reject(new Error(`更新服务返回 HTTP ${response.status}。`));
+          if (response.finalUrl && response.finalUrl !== url) return reject(new Error('更新地址发生异常跳转。'));
+          if (typeof response.responseText !== 'string' || response.responseText.length > 2 * 1024 * 1024) return reject(new Error('更新响应内容异常。'));
+          resolve(response.responseText);
+        },
+        onerror: () => reject(new Error('无法连接 GitHub，请检查网络或篡改猴的网站访问权限。')),
+        ontimeout: () => reject(new Error('连接 GitHub 超时，请稍后重试。')),
+        onabort: () => reject(new Error('更新检查已取消。'))
+      });
+    });
+  }
+  async function showUpdateDetails() {
+    if (!latestVersion) return;
+    const version = latestVersion, sequence = ++detailsSequence;
+    updateReturnFocus = panel.hidden ? launcher : versionButton;
+    updateToast.hidden = true; hideTip();
+    updateTitle.textContent = `更新说明 · v${version}`;
+    updateNotes.textContent = '正在读取更新说明…';
+    releaseLink.href = `${releasesURL}/tag/v${version}`;
+    if (!updateDialog.open) updateDialog.showModal();
+    try {
+      const result = JSON.parse(await requestUpdateText(`https://api.github.com/repos/areusa/bili-danmaku-keyword-release/releases/tags/v${version}`));
+      if (result.tag_name !== `v${version}` || result.draft || result.prerelease) throw new Error('发布说明版本不匹配。');
+      if (sequence === detailsSequence) updateNotes.textContent = typeof result.body === 'string' && result.body.trim() ? result.body.slice(0, 20000) : '此版本未提供更新说明。';
+    } catch {
+      if (sequence === detailsSequence) updateNotes.textContent = '暂时无法读取更新说明，可查看发布页或直接安装。';
+    }
+  }
+  async function checkScriptUpdate(manual = false) {
+    if (checkingUpdate || stopped) return;
+    const state = readUpdateState(), now = Date.now();
+    const recent = (time, interval) => Number.isFinite(time) && time > 0 && now >= time && now - time < interval;
+    if (!manual && (document.visibilityState === 'hidden' || navigator.connection?.saveData || recent(state.checkedAt, updateInterval) || recent(state.attemptedAt, 30 * 60 * 1000))) return;
+    checkingUpdate = true; saveUpdateState({ attemptedAt: now }); renderUpdateState();
+    try {
+      const text = await requestUpdateText(updateURL);
+      const header = text.match(/^\/\/ ==UserScript==\r?\n([\s\S]*?)^\/\/ ==\/UserScript==/m)?.[1];
+      const field = key => {
+        const matches = [...(header || '').matchAll(new RegExp(`^// @${key}\\s+([^\\r\\n]+)$`, 'gm'))];
+        return matches.length === 1 ? matches[0][1].trim() : '';
+      };
+      const version = field('version');
+      if (!validVersion(version) || field('name') !== 'B站直播关键词高亮' || field('namespace') !== 'local.bili-danmaku-keyword' || field('downloadURL') !== updateURL) throw new Error('更新文件身份或版本无效。');
+      if (stopped) return;
+      saveUpdateState({ checkedAt: Date.now(), version });
+      latestVersion = newerVersion(version) ? version : '';
+      if (latestVersion) showUpdateNotice(`新版本 v${latestVersion} 已发布`, true);
+      else if (manual) showUpdateNotice('当前已是最新版本');
+      else updateToast.hidden = true;
+    } catch (error) {
+      if (!stopped && manual) showUpdateNotice(error.message);
+    } finally { checkingUpdate = false; renderUpdateState(); }
+  }
+  const cachedUpdate = readUpdateState();
+  latestVersion = newerVersion(cachedUpdate.version) ? cachedUpdate.version : '';
+  renderUpdateState();
+  if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('检查脚本更新', () => checkScriptUpdate(true));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkScriptUpdate(); });
   if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('打开关键词检测面板', () => openPanel(true));
   if (typeof GM_registerMenuCommand === 'function') GM_registerMenuCommand('导出设置 JSON 文件', () => { openPanel(true); selectTab('backup'); selectBackupMode('export'); exportSettings(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') persistHistory(); else tick(); });
@@ -860,4 +987,5 @@
   if (!window.CSS?.highlights || !window.Highlight) notice += ' 当前浏览器不支持词内高亮，将使用整行底色和正文下划线。';
   selectTab(config.words.length ? 'history' : 'settings');
   updateNativeStyle(); renderWords(); renderRecords(); tell(notice); tick();
+  checkScriptUpdate();
 })();
