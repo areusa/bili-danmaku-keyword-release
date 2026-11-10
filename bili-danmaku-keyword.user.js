@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站直播关键词高亮
 // @namespace    local.bili-danmaku-keyword
-// @version      1.3.4
+// @version      1.3.5
 // @updateURL    https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @downloadURL  https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @description  本机配置关键词，高亮原生弹幕并保留昵称和命中记录，不额外连接弹幕服务器。
@@ -21,7 +21,7 @@
 (() => {
   'use strict';
   if (document.getElementById('bdk-host')) return;
-  const SCRIPT_VERSION = '1.3.4';
+  const SCRIPT_VERSION = '1.3.5';
   const SETTINGS = 'bdk-settings-v1', HISTORY = 'bdk-history-v1';
   const BACKUPS = 'bdk-settings-backups-v1';
   const ROW = '.chat-item.danmaku-item';
