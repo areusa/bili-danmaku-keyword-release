@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         B站直播关键词高亮
 // @namespace    local.bili-danmaku-keyword
-// @version      1.3.2
+// @version      1.3.3
 // @updateURL    https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @downloadURL  https://raw.githubusercontent.com/areusa/bili-danmaku-keyword-release/main/bili-danmaku-keyword.user.js
 // @description  本机配置关键词，高亮原生弹幕并保留昵称和命中记录，不额外连接弹幕服务器。
@@ -18,7 +18,7 @@
 (() => {
   'use strict';
   if (document.getElementById('bdk-host')) return;
-  const SCRIPT_VERSION = '1.3.2';
+  const SCRIPT_VERSION = '1.3.3';
   const SETTINGS = 'bdk-settings-v1', HISTORY = 'bdk-history-v1';
   const BACKUPS = 'bdk-settings-backups-v1';
   const ROW = '.chat-item.danmaku-item';
@@ -189,7 +189,7 @@
   const css = el('style', { text: `
     :host{all:initial;--surface:var(--bg1,#fff);--soft:var(--bg2,#f6f7f8);--ink:var(--text1,#18191c);--muted:var(--text2,#61666d);--line:var(--line_regular,#e3e5e7);--accent:#008ac5;--tint:#e3f5fc;--danger:#b83b51;font:13px/1.6 "Microsoft YaHei",system-ui,sans-serif;color:var(--ink);color-scheme:light}
     *{box-sizing:border-box;min-width:0}button,input,textarea{font:inherit;color:inherit}button,input,label,summary{touch-action:manipulation}button{display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:6px 10px;min-height:32px;transition:background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out,transform 160ms ease-out}button:active{transform:scale(.96)}button:disabled{cursor:default;color:var(--muted);background:var(--soft)}button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid #00aeec;outline-offset:2px}.icon{width:18px;height:18px;flex:none;pointer-events:none}.icon-button{width:32px;flex:none;padding:6px;border-color:transparent;background:transparent;color:var(--muted)}.icon-button.danger{color:var(--danger)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-    [hidden]{display:none!important}.launch{position:fixed;right:16px;top:145px;z-index:2147483646;box-shadow:0 3px 12px #0001;gap:8px;max-width:calc(100vw - 24px)}.launch .icon{color:var(--accent)}.count{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
+    [hidden]{display:none!important}.launch{position:fixed;right:16px;top:145px;z-index:2147483646;box-shadow:0 3px 12px #0001;gap:6px;min-width:56px;min-height:36px;max-width:calc(100vw - 24px);touch-action:none;user-select:none;cursor:grab;transition:top 160ms ease-out,background-color 160ms ease-out,color 160ms ease-out,border-color 160ms ease-out}.launch:active{transform:none}.launch.dragging{cursor:grabbing;transition:none}.launch .icon{color:var(--accent)}.count{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
     .panel{position:fixed;right:16px;top:76px;z-index:2147483647;display:flex;flex-direction:column;width:clamp(280px,calc(100vw - 32px),360px);max-width:calc(100% - 24px);min-height:min(240px,calc(100dvh - 92px));max-height:min(660px,calc(100dvh - 92px));overflow:hidden;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 24px #0002;opacity:1;transform:translateY(0);transition:opacity 160ms ease-out,transform 160ms ease-out,display 160ms ease-out allow-discrete}.panel[hidden]{opacity:0;transform:translateY(6px)}@starting-style{.panel{opacity:0;transform:translateY(6px)}}
     .head{display:flex;align-items:center;gap:8px;flex:none;padding:10px 12px 4px}.head>.icon{color:var(--accent)}h2{flex:1;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 7px;font-size:14px;font-weight:600;margin:0}.title-text{white-space:nowrap}.version{font-size:11px;font-weight:400;color:#9a9ea6;white-space:nowrap;font-variant-numeric:tabular-nums}h3{font-size:13px;font-weight:500;margin:0}.switch{position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:32px;cursor:pointer}.switch input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}.switch-track{width:30px;height:18px;background:#ccd0d7;border-radius:20px;pointer-events:none;transition:background-color 160ms ease-out}.switch-track:after{content:'';display:block;width:14px;height:14px;margin:2px;border-radius:50%;background:#fff;box-shadow:0 1px 2px #0002;transition:transform 160ms ease-out}.switch input:checked+.switch-track{background:var(--accent)}.switch input:checked+.switch-track:after{transform:translateX(12px)}.switch:has(input:focus-visible){outline:2px solid #00aeec;outline-offset:2px;border-radius:6px}
     .status{display:flex;align-items:center;gap:8px;padding:0 14px 10px;flex:none}.pill{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}.pill:before{content:'';width:6px;height:6px;border-radius:50%;background:#23a275}.pill.warn:before{background:#d59a32}.stats{margin-left:auto;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.stats .icon{width:14px;height:14px}.status .icon-button{width:24px;min-height:24px;padding:3px}.hint{padding:0 14px 10px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}.hint:empty{display:none}
@@ -200,7 +200,7 @@
     .preview-settings{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;margin:0;font-size:12px}.preview-settings dt{color:var(--muted)}.preview-settings dd{margin:0;overflow-wrap:anywhere}
     .tooltip{max-height:calc(100dvh - 16px);overflow:hidden;position:fixed;z-index:2147483647;max-width:min(260px,calc(100vw - 16px));padding:7px 10px;background:var(--ink);color:var(--surface);border-radius:6px;box-shadow:0 3px 12px #0002;font-size:12px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;opacity:0;visibility:hidden;transform:translateY(3px);transition:opacity 160ms ease-out,transform 160ms ease-out,visibility 160ms ease-out}.tooltip.show{opacity:1;visibility:visible;transform:translateY(0)}
     @media(hover:hover) and (pointer:fine){button:hover{background:var(--tint);color:var(--accent)}button.primary:hover{background:#0079ad;color:#fff}.danger:hover{background:#fff0f3;color:var(--danger)}.color-control:hover,.toggle-icon:hover{background:var(--soft)}}
-    @media(pointer:coarse){.icon-button,.toggle-icon,.color-control,.switch{min-width:44px;min-height:44px}.word .icon-button,.record .icon-button,.status .icon-button{width:44px;min-height:44px}.tabs [data-view=backup]{flex-basis:44px}input[type=text],textarea{font-size:16px}.word label{min-height:44px}}
+    @media(pointer:coarse){.launch{min-height:44px}.icon-button,.toggle-icon,.color-control,.switch{min-width:44px;min-height:44px}.word .icon-button,.record .icon-button,.status .icon-button{width:44px;min-height:44px}.tabs [data-view=backup]{flex-basis:44px}input[type=text],textarea{font-size:16px}.word label{min-height:44px}}
     @media(max-width:400px){.panel{right:12px;width:calc(100% - 24px)}.launch{right:12px}.head{padding-inline:10px}.view{padding-inline:12px}}
     @media(max-height:420px){.panel{top:12px;max-height:calc(100dvh - 24px);min-height:0}.head{padding-top:6px}.status{padding-bottom:4px}.launch{top:min(145px,calc(100dvh - 48px))}}
     @keyframes view-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
@@ -208,9 +208,60 @@
   ` });
   shadow.append(css);
   const launcherCount = el('span', { class: 'count', text: '0' });
-  const launcher = button('', () => openPanel(panel.hidden), 'launch');
-  launcher.append(icon('chat'), el('span', { text: '弹幕关键词' }), launcherCount);
+  let launcherTop = 145, launcherDrag = null, suppressLauncherClick = false;
+  const launcherPositionKey = 'bdk-launcher-top-v1';
+  try {
+    const stored = GM_getValue(launcherPositionKey, null);
+    if (typeof stored === 'number' && Number.isFinite(stored)) launcherTop = stored;
+  } catch { notice += ' 浮窗位置读取失败，已使用默认位置。'; }
+  const launcher = button('', e => {
+    if (suppressLauncherClick && e.detail !== 0) { suppressLauncherClick = false; e.preventDefault(); return; }
+    suppressLauncherClick = false; openPanel(panel.hidden);
+  }, 'launch');
+  launcher.append(icon('chat'), launcherCount);
+  launcher.dataset.tip = '弹幕关键词 · 点击展开，上下拖动定位\n聚焦后可用 ↑ / ↓ 移动，Home / End 置顶或置底';
   launcher.setAttribute('aria-label', '打开关键词检测面板'); launcher.setAttribute('aria-expanded', 'false'); launcher.setAttribute('aria-controls', 'bdk-panel');
+  function positionLauncher(top = launcherTop) {
+    const max = Math.max(8, window.innerHeight - (launcher.offsetHeight || 36) - 8);
+    const bounded = Math.max(8, Math.min(max, top));
+    launcher.style.top = `${bounded}px`; return bounded;
+  }
+  function saveLauncherPosition() {
+    try { GM_setValue(launcherPositionKey, launcherTop); }
+    catch { tell('浮窗位置保存失败，当前移动仅在本页生效。'); }
+  }
+  launcher.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !e.isPrimary || launcherDrag) return;
+    suppressLauncherClick = false;
+    launcherDrag = { id: e.pointerId, x: e.clientX, y: e.clientY, top: positionLauncher(), moved: false };
+    launcher.setPointerCapture(e.pointerId); hideTip();
+  });
+  launcher.addEventListener('pointermove', e => {
+    if (!launcherDrag || e.pointerId !== launcherDrag.id) return;
+    if (!launcherDrag.moved && Math.hypot(e.clientX - launcherDrag.x, e.clientY - launcherDrag.y) < 5) return;
+    launcherDrag.moved = true; launcher.classList.add('dragging'); hideTip();
+    positionLauncher(launcherDrag.top + e.clientY - launcherDrag.y);
+    e.preventDefault();
+  });
+  function finishLauncherDrag(e) {
+    if (!launcherDrag || e.pointerId !== launcherDrag.id) return;
+    const drag = launcherDrag; launcherDrag = null;
+    suppressLauncherClick = drag.moved;
+    if (e.type === 'pointerup' && drag.moved) {
+      launcherTop = positionLauncher(drag.top + e.clientY - drag.y); saveLauncherPosition();
+    } else positionLauncher();
+    launcher.classList.remove('dragging');
+    if (launcher.hasPointerCapture(e.pointerId)) launcher.releasePointerCapture(e.pointerId);
+  }
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) launcher.addEventListener(type, finishLauncherDrag);
+  launcher.addEventListener('keydown', e => {
+    if (launcherDrag || !['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault(); hideTip();
+    const step = e.shiftKey ? 40 : 12;
+    launcherTop = positionLauncher(e.key === 'Home' ? 8 : e.key === 'End' ? window.innerHeight : positionLauncher() + (e.key === 'ArrowUp' ? -step : step));
+    saveLauncherPosition();
+  });
+  window.addEventListener('resize', () => { if (!launcherDrag && !launcher.hidden) positionLauncher(); });
   const panel = el('section', { class: 'panel', id: 'bdk-panel', hidden: true, 'aria-label': '直播关键词检测面板' });
   const close = iconButton('close', '收起面板', () => openPanel(false));
   const enabled = el('input', { type: 'checkbox', 'aria-label': '启用检测', checked: config.enabled, onchange: () => { config.enabled = enabled.checked; saveConfig(); refresh(); } });
@@ -512,6 +563,9 @@
   panel.append(message);
   const tooltip = el('div', { class: 'tooltip', id: 'bdk-tooltip', role: 'tooltip' });
   shadow.append(launcher, panel, tooltip);
+  // 首次绘制直接落在记忆位置，后续键盘定位和窗口边界调整保留过渡。
+  launcher.style.transition = 'none'; positionLauncher();
+  launcher.getBoundingClientRect(); launcher.style.removeProperty('transition');
   let tipTarget = null, tipTimer = 0, tipWarmUntil = 0;
   function hideTip() {
     clearTimeout(tipTimer); tipTarget?.removeAttribute('aria-describedby'); tipTarget = null;
@@ -544,7 +598,7 @@
   });
   function openPanel(open) {
     hideTip(); panel.hidden = !open; launcher.hidden = open; launcher.setAttribute('aria-expanded', String(open)); launcher.setAttribute('aria-label', open ? '收起面板' : '打开关键词检测面板');
-    if (!open) resetTransfers();
+    if (!open) { resetTransfers(); positionLauncher(); }
     if (open) { renderRecords(); views[Object.keys(views).find(name => !views[name][1].hidden)][0].focus(); } else launcher.focus();
   }
   let messageTimer = 0;
